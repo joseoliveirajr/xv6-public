@@ -2,6 +2,8 @@
 #include "user.h"
 #include "date.h"
 
+
+
 int stdout = 1;
 int stderr = 2;
 
@@ -13,7 +15,7 @@ int main(int argc, char *argv[]) {
     exit();
   }
 
-  // Imprima a data aqui
+  printf(stdout, "%d/%d/%d\n", r.day, r.month, r.year);
 
   exit();
 }

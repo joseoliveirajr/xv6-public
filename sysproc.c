@@ -95,6 +95,6 @@ sys_date(void)
 {
   char *ptr;
   argptr(0, &ptr, sizeof(struct rtcdate*));
-  // seu código aqui
+  cmostime((struct rtcdate *)ptr);
   return 0;
 }
