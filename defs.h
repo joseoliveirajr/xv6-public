@@ -68,6 +68,10 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
+int             num_pages(void);
+int             cr(int pa);  //Pega o numero de referencias
+void            icr(int pa); //ICR = Incrementa Contador de Referencia
+void            dcr(int pa); //DCR = Decrementa Contador de Referencia
 
 // kbd.c
 void            kbdintr(void);
@@ -181,10 +185,12 @@ void            freevm(pde_t*);
 void            inituvm(pde_t*, char*, uint);
 int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
 pde_t*          copyuvm(pde_t*, uint);
+pde_t*          copyuvmcow(pde_t*, uint); //Modificado o CopyUVM para se tornar um COW
 void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+void            pagefault(int err_code); //Funcao para tratar pagefaults
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

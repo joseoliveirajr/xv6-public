@@ -6,7 +6,6 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
-#include "vm.h"
 
 int
 sys_fork(void)
@@ -101,11 +100,45 @@ sys_date(void)
 }
 int sys_virt2real(void){
   pde_t *pgdir = myproc()->pgdir;
-  pte_t *realpg;
-
+  //pte_t *realpg;
+  int alloc = 0;
   char *va;
   argstr(0, &va);
-  realpg = walkpgdir(pgdir, va, 0);
+  pde_t *pde;
+  pte_t *pgtab;
 
-  return (int)realpg;
+  pde = &pgdir[PDX(va)];
+  if(*pde & PTE_P){
+    pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+  } else {
+    if(!alloc || (pgtab = (pte_t*)kalloc()) == 0)
+      return 0;
+    // Make sure all those PTE_P bits are zero.
+    memset(pgtab, 0, PGSIZE);
+    // The permissions here are overly generous, but they can
+    // be further restricted by the permissions in the page table
+    // entries, if necessary.
+    *pde = V2P(pgtab) | PTE_P | PTE_W | PTE_U;
+  }
+  return (int) &pgtab[PTX(va)];
+
+}
+int
+sys_corretor(void)
+{
+  //char *ptr;
+  //argptr(0, &ptr, sizeof(struct rtcdate*));
+  //cmostime((struct rtcdate *)ptr);
+  return 0;
+}
+
+int
+sys_forkcow(void)
+{
+  return fork();
+}
+
+int sys_num_pages(void)
+{
+  return num_pages();
 }

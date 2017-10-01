@@ -32,7 +32,7 @@ seginit(void)
 // Return the address of the PTE in page table pgdir
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page table pages.
-static pte_t *
+pte_t *
 walkpgdir(pde_t *pgdir, const void *va, int alloc)
 {
   pde_t *pde;
@@ -342,6 +342,38 @@ bad:
   return 0;
 }
 
+// Copyuvm para COW
+pde_t* copyuvmcow(pde_t *pgdir, uint sz)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, flags;
+
+  if((d = setupkvm()) == 0)
+    return 0;
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("copyuvm: pte should exist");
+    if(!(*pte & PTE_P))
+      panic("copyuvm: page not present");
+    *pte &= ~PTE_W;
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+      goto bad;
+    //icr(pa); //incrementa o contador de referencias
+  }
+  lcr3(V2P(pgdir)); //Limpa a TLB para o processo original
+  return d;
+
+bad:
+  freevm(d);
+  lcr3(V2P(pgdir)); // mesmo se der falha na cópia, limpa a TLB
+  return 0;
+}
+
+
+
 //PAGEBREAK!
 // Map user virtual address to kernel address.
 char*
@@ -390,3 +422,73 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 //PAGEBREAK!
 // Blank page.
 
+
+void pagefault(int err_code)
+{
+    struct proc *proc = myproc();
+    struct cpu *cpu = mycpu();
+    // cprintf("Page fault occured\n");
+
+    // get the faulting virtual address from the CR2 register
+    uint va = rcr2();
+    pte_t *pte;
+
+    // Error Handling code
+    if(proc == 0){
+      cprintf("Page fault with no user process from cpu %d, cr2=0x%x\n",
+              cpu->apicid, va);
+      panic("pagefault");
+    }
+
+    if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (void*)va, 0)) == 0  ||
+        !(*pte & PTE_P) || !(*pte & PTE_U) ){
+      cprintf("Illegal virtual address on cpu %d addr 0x%x, kill proc %s with pid %d\n",
+              cpu->apicid, va, proc->name, proc->pid);
+      // mark the process as killed
+      proc->killed = 1;
+      return;
+    }
+
+    // Current page has write permissions enabled
+    if(*pte & PTE_W){
+      cprintf("error code: %x, addr 0x%x\n", err_code, va);
+      panic("Page fault already writeable");
+    }
+
+    // get the physical address from the  given page table entry
+    uint pa = PTE_ADDR(*pte);
+    // get the reference count of the current page
+    uint refCount = cr(pa);
+    char *mem;
+
+    // Current process is the first one that tries to write to this page
+    if(refCount > 1) {
+
+        // allocate a new memory page for the process
+        if((mem = kalloc()) == 0) {
+          cprintf("Page fault out of memory, kill proc %s with pid %d\n", proc->name, proc->pid);
+          proc->killed = 1;
+          return;
+        }
+        // copy the contents from the original memory page pointed the virtual address
+        memmove(mem, (char*)P2V(pa), PGSIZE);
+        // point the given page table entry to the new page
+        *pte = V2P(mem) | PTE_P | PTE_U | PTE_W;
+
+        // Since the current process now doesn't point to original page,
+        // decrement the reference count by 1
+        //dcr(pa);
+    }
+    // Current process is the last one that tries to write to this page
+    // No need to allocate new page as all other process has their copies already
+    else if(refCount == 1){
+      // remove the read-only restriction on the trapping page
+      *pte |= PTE_W;
+    }
+    else{
+      panic("pagefault reference count wrong\n");
+    }
+
+    // Flush TLB for process since page table entries changed
+    lcr3(V2P(proc->pgdir));
+}
