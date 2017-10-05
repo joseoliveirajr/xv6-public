@@ -21,7 +21,6 @@ struct {
   struct spinlock lock;
   int use_lock;
   struct run *freelist;
-  int num_pages;
   int pg_refcount[PHYSTOP >> PGSHIFT];
 } kmem;
 
@@ -36,7 +35,6 @@ kinit1(void *vstart, void *vend)
   initlock(&kmem.lock, "kmem");
   kmem.use_lock = 0;
   freerange(vstart, vend);
-  kmem.num_pages = 0;
 }
 
 void
@@ -78,7 +76,6 @@ kfree(char *v)
 
   if(kmem.pg_refcount[V2P(v) >> PGSHIFT] == 0){   //Se nao tiver nenhuma referencia para a pagina, pode dar free
     memset(v,1,PGSIZE);
-    kmem.num_pages++;     //Decrementa o numero de paginas quando dá um free
     r->next = kmem.freelist;
     kmem.freelist = r;
   }
@@ -100,7 +97,6 @@ kalloc(void)
   r = kmem.freelist;
   if(r){
     kmem.freelist = r->next;
-    kmem.num_pages--; //alocou mais uma pagina
     kmem.pg_refcount[V2P((char*) r) >> PGSHIFT] = 1;
   }
   if(kmem.use_lock)
@@ -109,12 +105,6 @@ kalloc(void)
 }
 
 
-int num_pages(void){
-  acquire(&kmem.lock);
-  int num_pages = kmem.num_pages;
-  release(&kmem.lock);
-  return num_pages;
-}
 
 void drc(int pa)
 {

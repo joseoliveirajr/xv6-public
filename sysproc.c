@@ -126,9 +126,6 @@ int sys_virt2real(void){
 int
 sys_corretor(void)
 {
-  //char *ptr;
-  //argptr(0, &ptr, sizeof(struct rtcdate*));
-  //cmostime((struct rtcdate *)ptr);
   return 0;
 }
 
@@ -140,5 +137,5 @@ sys_forkcow(void)
 
 int sys_num_pages(void)
 {
-  return num_pages();
+  return myproc()->sz/4096;
 }

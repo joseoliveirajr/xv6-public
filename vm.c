@@ -353,10 +353,10 @@ pde_t* copyuvmcow(pde_t *pgdir, uint sz)
     return 0;
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
-      panic("copyuvm: pte should exist");
+      panic("copyuvmcow: pte should exist");
     if(!(*pte & PTE_P))
-      panic("copyuvm: page not present");
-    *pte &= ~PTE_W;
+      panic("copyuvmcow: page not present");
+    *pte &= ~PTE_W; //transforma em read only
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
@@ -427,68 +427,62 @@ void pagefault(int err_code)
 {
     struct proc *proc = myproc();
     struct cpu *cpu = mycpu();
-    // cprintf("Page fault occured\n");
 
-    // get the faulting virtual address from the CR2 register
+    // pega o endereço pelo registrador cr2
     uint va = rcr2();
     pte_t *pte;
 
-    // Error Handling code
+    // Codigo para erros
     if(proc == 0){
-      cprintf("Page fault with no user process from cpu %d, cr2=0x%x\n",
-              cpu->apicid, va);
+      cprintf("Pagefault sem processos do usuario pela cpu %d, cr2=0x%x\n", cpu->apicid, va);
       panic("pagefault");
     }
 
-    if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (void*)va, 0)) == 0  ||
-        !(*pte & PTE_P) || !(*pte & PTE_U) ){
-      cprintf("Illegal virtual address on cpu %d addr 0x%x, kill proc %s with pid %d\n",
-              cpu->apicid, va, proc->name, proc->pid);
-      // mark the process as killed
+    if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (void*)va, 0)) == 0  || !(*pte & PTE_P) || !(*pte & PTE_U) ){
+      cprintf("Endereco virtual invalido da cpu %d addr 0x%x, kill proc %s pid %d\n", cpu->apicid, va, proc->name, proc->pid);
+      // o processo foi morto
       proc->killed = 1;
       return;
     }
 
-    // Current page has write permissions enabled
+    // Pagina pode fazer write
     if(*pte & PTE_W){
-      cprintf("error code: %x, addr 0x%x\n", err_code, va);
-      panic("Page fault already writeable");
+      cprintf("Erro: %x, addr 0x%x\n", err_code, va);
+      panic("Pagina ja pode ser escrita");
     }
 
-    // get the physical address from the  given page table entry
+    // Pega o endereco fisico
     uint pa = PTE_ADDR(*pte);
-    // get the reference count of the current page
+    // pega o contador de referencia da pagina
     uint refCount = cr(pa);
     char *mem;
 
-    // Current process is the first one that tries to write to this page
+    // Se o processo for o primeiro a tentar escrever na pagina
     if(refCount > 1) {
 
-        // allocate a new memory page for the process
+        // Aloca uma nova memoria para o processo
         if((mem = kalloc()) == 0) {
-          cprintf("Page fault out of memory, kill proc %s with pid %d\n", proc->name, proc->pid);
+          cprintf("pagefault por falta de memoria, kill proc %s pid %d\n", proc->name, proc->pid);
           proc->killed = 1;
           return;
         }
-        // copy the contents from the original memory page pointed the virtual address
+        // copia o conteudo original da pagina pela memoria virtual
         memmove(mem, (char*)P2V(pa), PGSIZE);
-        // point the given page table entry to the new page
+        // manda o ponteiro da nova pagina
         *pte = V2P(mem) | PTE_P | PTE_U | PTE_W;
 
-        // Since the current process now doesn't point to original page,
-        // decrement the reference count by 1
+        // Se nao apontar para o processo original, decrementa a referencia
         //dcr(pa);
     }
-    // Current process is the last one that tries to write to this page
-    // No need to allocate new page as all other process has their copies already
+    // Quando for o ultimo a tentar modificar a pagina
     else if(refCount == 1){
-      // remove the read-only restriction on the trapping page
+      //tira o read only
       *pte |= PTE_W;
     }
     else{
-      panic("pagefault reference count wrong\n");
+      panic("pagefault contador de referencia errado\n");
     }
 
-    // Flush TLB for process since page table entries changed
+    //a tabela de paginas mudou, muda a tlb
     lcr3(V2P(proc->pgdir));
 }

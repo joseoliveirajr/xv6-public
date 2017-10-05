@@ -12,7 +12,7 @@ int stderr = 2;
 const int GLOBAL1_RO = 0xdcc605;
 int GLOBAL2_RW = 0xdcc606;
 
-/*
+
 // testa o fork normal. garante que não quebramos nada
 // N forks e waits consecutivos. existe um limite de 64
 // processos no xv6, então temos que garantir que N <= 64
@@ -61,7 +61,7 @@ int caso2forkcow(void) {
   return TRUE;
 }
 
-*/
+
 // testa que o processo parent e child tem o mesmo num de pgs
 // embora durante o forkcow algumas páginas são escrita, os
 // 2 processos não crescem nem em pilha nem em heap.
@@ -90,7 +90,7 @@ int caso3numpgs(void) {
   }
   return TRUE;
 }
-/*
+
 
 // testa que o processo parent e child tem o mesmo addr real
 // para uma constante. usamos a GLOBAL1_RO
@@ -101,6 +101,7 @@ int caso4mesmoaddr(void) {
   char answer[20];
   int pid = forkcow();
   if (pid == 0) { // child manda addr de GLOBAL1_RO
+    printf(stdout, "entrou aqui");
     int addr = (int)virt2real((char*)&GLOBAL1_RO);
     if (addr < 0) addr = -addr; // atoi falha quando <0, nao sei pq
     printf(stdout, "[--Caso 4.1] Child write %d\n", addr);
@@ -194,7 +195,7 @@ int caso6cow(void) {
   return TRUE;
 }
 
-*/
+
 // testa a chamada date
 int get_date(struct rtcdate *r) {
   if (date(r)) {
@@ -218,7 +219,7 @@ void print_date(struct rtcdate *r) {
 int main(int argc, char *argv[]) {
   struct rtcdate r;
   int call_ok = 1;
-  /*
+
   printf(stdout, "[Caso 0] Testando o date\n");
   call_ok = get_date(&r);
   if (call_ok == FALSE) {
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
     exit();
   }
   printf(stdout, "[Caso 2] OK\n");
-*/
+
   get_date(&r);
   print_date(&r);
   printf(stdout, "[Caso 3] Testando se o número de páginas é igual\n");
@@ -257,46 +258,46 @@ int main(int argc, char *argv[]) {
     exit();
   }
   printf(stdout, "[Caso 3] OK\n");
-  //
-  // get_date(&r);
-  // print_date(&r);
-  // printf(stdout, "[Caso 4] Testando se o endereço de uma constante é =\n");
-  // call_ok = caso4mesmoaddr();
-  // if (call_ok == FALSE) {
-  //   printf(stdout, "[Caso 4 - ERROR] Falhou!\n");
-  //   exit();
-  // }
-  // printf(stdout, "[Caso 4] OK\n");
-  //
-  // get_date(&r);
-  // print_date(&r);
-  // printf(stdout, "[Caso 5] Testando se o endereço de uma global é =\n");
-  // call_ok = caso5mesmoaddr();
-  // if (call_ok == FALSE) {
-  //   printf(stdout, "[Caso 5 - ERROR] Falhou!\n");
-  //   exit();
-  // }
-  // printf(stdout, "[Caso 5] OK\n");
-  //
-  // get_date(&r);
-  // print_date(&r);
-  // printf(stdout, "[Caso 6] Testando o COW\n");
-  // call_ok = caso6cow();
-  // if (call_ok == FALSE) {
-  //   printf(stdout, "[Caso 6 - ERROR] Falhou!\n");
-  //   exit();
-  // }
-  // printf(stdout, "[Caso 6] OK\n");
-  // printf(stdout, "\n");
-  // printf(stdout, "         (__)        \n");
-  // printf(stdout, "         (oo)        \n");
-  // printf(stdout, "   /------\\/        \n");
-  // printf(stdout, "  / |    ||          \n");
-  // printf(stdout, " *  /\\---/\\        \n");
-  // printf(stdout, "    ~~   ~~          \n");
-  // printf(stdout, "....\"Congratulations! You have mooed!\"...\n");
-  // printf(stdout, "\n");
-  // printf(stdout, "[0xDCC605 - COW] ALL OK!!!\n");
+
+  get_date(&r);
+  print_date(&r);
+  printf(stdout, "[Caso 4] Testando se o endereço de uma constante é =\n");
+  call_ok = caso4mesmoaddr();
+  if (call_ok == FALSE) {
+    printf(stdout, "[Caso 4 - ERROR] Falhou!\n");
+    exit();
+  }
+  printf(stdout, "[Caso 4] OK\n");
+
+  get_date(&r);
+  print_date(&r);
+  printf(stdout, "[Caso 5] Testando se o endereço de uma global é =\n");
+  call_ok = caso5mesmoaddr();
+  if (call_ok == FALSE) {
+    printf(stdout, "[Caso 5 - ERROR] Falhou!\n");
+    exit();
+  }
+  printf(stdout, "[Caso 5] OK\n");
+
+  get_date(&r);
+  print_date(&r);
+  printf(stdout, "[Caso 6] Testando o COW\n");
+  call_ok = caso6cow();
+  if (call_ok == FALSE) {
+    printf(stdout, "[Caso 6 - ERROR] Falhou!\n");
+    exit();
+  }
+  printf(stdout, "[Caso 6] OK\n");
+  printf(stdout, "\n");
+  printf(stdout, "         (__)        \n");
+  printf(stdout, "         (oo)        \n");
+  printf(stdout, "   /------\\/        \n");
+  printf(stdout, "  / |    ||          \n");
+  printf(stdout, " *  /\\---/\\        \n");
+  printf(stdout, "    ~~   ~~          \n");
+  printf(stdout, "....\"Congratulations! You have mooed!\"...\n");
+  printf(stdout, "\n");
+  printf(stdout, "[0xDCC605 - COW] ALL OK!!!\n");
 
   exit();
 }
