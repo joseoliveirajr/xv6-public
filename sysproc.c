@@ -102,7 +102,7 @@ int sys_virt2real(void)
 {
   char *ptr;
   argptr(0,&ptr, sizeof(char*));
-  ptr = virt2real(myproc()->pgdir, (char*) ptr);
+  ptr = uva2ka(myproc()->pgdir, (char*) ptr);
   return (int)ptr;
 }
 int
@@ -114,7 +114,7 @@ sys_corretor(void)
 int
 sys_forkcow(void)
 {
-  return forkcow();// MUDAR!
+  return forkcow();
 }
 
 int sys_num_pages(void)
