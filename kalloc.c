@@ -106,7 +106,7 @@ kalloc(void)
 
 
 
-void drc(int pa)
+void dcr(int pa)
 {
   if(pa < (int)V2P(end) || pa >= PHYSTOP)
     panic("Decremento de Contador de Referencia");
@@ -116,7 +116,7 @@ void drc(int pa)
   release(&kmem.lock);
 }
 
-void irc(int pa)
+void icr(int pa)
 {
   if(pa < (int)V2P(end) || pa >= PHYSTOP)
     panic("Incremento de Contador de Referencia");

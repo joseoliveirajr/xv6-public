@@ -361,7 +361,7 @@ pde_t* copyuvmcow(pde_t *pgdir, uint sz)
     flags = PTE_FLAGS(*pte);
     if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
       goto bad;
-    //icr(pa); //incrementa o contador de referencias
+    icr(pa); //incrementa o contador de referencias
   }
   lcr3(V2P(pgdir)); //Limpa a TLB para o processo original
   return d;
@@ -472,7 +472,7 @@ void pagefault(int err_code)
         *pte = V2P(mem) | PTE_P | PTE_U | PTE_W;
 
         // Se nao apontar para o processo original, decrementa a referencia
-        //dcr(pa);
+        dcr(pa);
     }
     // Quando for o ultimo a tentar modificar a pagina
     else if(refCount == 1){
@@ -485,4 +485,16 @@ void pagefault(int err_code)
 
     //a tabela de paginas mudou, muda a tlb
     lcr3(V2P(proc->pgdir));
+}
+
+
+char * virt2real(pde_t *pgdir, char* va){
+  char* ra;
+  ra = (char*) walkpgdir((pde_t *)pgdir, (const void*)va, 0);
+  unsigned mask_first20 = 0b11111111111111111111000000000000;
+  unsigned mask_last12 =  0b00000000000000000000111111111111;
+  unsigned PPN = ((unsigned)ra & mask_first20);
+  unsigned offset = ((unsigned)va & mask_last12);
+  return (char*) (PPN | offset);
+
 }
