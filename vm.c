@@ -324,7 +324,6 @@ copyuvm(pde_t *pgdir, uint sz)
     return 0;
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
-    goto bad;
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
@@ -334,6 +333,7 @@ copyuvm(pde_t *pgdir, uint sz)
       goto bad;
     memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
+      goto bad;
   }
   return d;
 
@@ -426,58 +426,33 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 void pagefault(int err_code)
 {
     struct proc *proc = myproc();
-    struct cpu *cpu = mycpu();
 
     // pega o endereço pelo registrador cr2
     uint va = rcr2();
     pte_t *pte;
 
-    // Codigo para erros
-    if(proc == 0){
-      cprintf("Pagefault sem processos do usuario pela cpu %d, cr2=0x%x\n", cpu->apicid, va);
-      panic("pagefault");
-    }
-
     if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (void*)va, 0)) == 0  || !(*pte & PTE_P) || !(*pte & PTE_U) ){
-      cprintf("Endereco virtual invalido da cpu %d addr 0x%x, kill proc %s pid %d\n", cpu->apicid, va, proc->name, proc->pid);
-      // o processo foi morto
-      proc->killed = 1;
+      proc->killed = 1; // o processo foi morto
       return;
     }
 
-    // Pagina pode fazer write
-    if(*pte & PTE_W){
-      cprintf("Erro: %x, addr 0x%x\n", err_code, va);
-      panic("Pagina ja pode ser escrita");
-    }
-
-    // Pega o endereco fisico
-    uint pa = PTE_ADDR(*pte);
-    // pega o contador de referencia da pagina
-    uint refCount = cr(pa);
+    uint pa = PTE_ADDR(*pte); // Pega o endereco fisico
+    uint refCount = cr(pa); // pega o contador de referencia da pagina
     char *mem;
 
     // Se o processo for o primeiro a tentar escrever na pagina
-    if(refCount > 1) {
-
-        // Aloca uma nova memoria para o processo
+    if(refCount > 1) {// Aloca uma nova memoria para o processo
         if((mem = kalloc()) == 0) {
-          cprintf("pagefault por falta de memoria, kill proc %s pid %d\n", proc->name, proc->pid);
-          proc->killed = 1;
+          proc->killed = 1; //se faltar memória
           return;
         }
-        // copia o conteudo original da pagina pela memoria virtual
-        memmove(mem, (char*)P2V(pa), PGSIZE);
-        // manda o ponteiro da nova pagina
-        *pte = V2P(mem) | PTE_P | PTE_U | PTE_W;
-
-        // Se nao apontar para o processo original, decrementa a referencia
-        dcr(pa);
+        memmove(mem, (char*)P2V(pa), PGSIZE); // copia o conteudo original da pagina pela memoria virtual
+        *pte = V2P(mem) | PTE_P | PTE_U | PTE_W; // manda o ponteiro da nova pagina
+        dcr(pa); // Se nao apontar para o processo original, decrementa a referencia
     }
     // Quando for o ultimo a tentar modificar a pagina
     else if(refCount == 1){
-      //tira o read only
-      *pte |= PTE_W;
+      *pte |= PTE_W; //tira o read only
     }
     else{
       panic("pagefault contador de referencia errado\n");
@@ -485,16 +460,4 @@ void pagefault(int err_code)
 
     //a tabela de paginas mudou, muda a tlb
     lcr3(V2P(proc->pgdir));
-}
-
-
-char * virt2real(pde_t *pgdir, char* va){
-  char* ra;
-  ra = (char*) walkpgdir((pde_t *)pgdir, (const void*)va, 0);
-  unsigned mask_first20 = 0b11111111111111111111000000000000;
-  unsigned mask_last12 =  0b00000000000000000000111111111111;
-  unsigned PPN = ((unsigned)ra & mask_first20);
-  unsigned offset = ((unsigned)va & mask_last12);
-  return (char*) (PPN | offset);
-
 }
